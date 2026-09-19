@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Dash - Aventura de Victoria Emma</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(45deg, #1a1a2e, #16213e, #0f3460);
+            font-family: 'Arial Black', Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(180deg, #001122 0%, #003366 50%, #001122 100%);
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: radial-gradient(ellipse at center, #001133 0%, #000511 100%);
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .score {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            font-size: 2.5em;
+            font-weight: bold;
+            text-shadow: 0 0 20px #ff69b4, 0 0 40px #ff69b4;
+            color: #ff69b4;
+            pointer-events: none;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 1.2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,20,60,0.9));
+            border: 3px solid #ff69b4;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            display: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 50px rgba(255,105,180,0.3);
+            pointer-events: all;
+        }
+
+        .game-over h2 {
+            color: #ff3366;
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #ff3366;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff69b4, #ff1493);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.3em;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            box-shadow: 0 5px 15px rgba(255,105,180,0.3);
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(255,105,180,0.5);
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(0,20,40,0.95), rgba(0,40,80,0.95));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            pointer-events: all;
+        }
+
+        .start-screen h1 {
+            font-size: 3.5em;
+            margin-bottom: 30px;
+            text-shadow: 0 0 30px #ff69b4;
+            color: #ff69b4;
+            animation: glow 2s ease-in-out infinite alternate;
+            text-align: center;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 30px #ff69b4, 0 0 40px #ff69b4; }
+            to { text-shadow: 0 0 50px #ff69b4, 0 0 60px #ff69b4; }
+        }
+
+        .particle {
+            position: absolute;
+            background: radial-gradient(circle, #ff69b4, transparent);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 4s linear infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) translateX(0); opacity: 1; }
+            100% { transform: translateY(-100px) translateX(50px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="score">Distancia: <span id="scoreValue">0</span>m</div>
+            <div class="instructions">
+                <div>🎮 ESPACIO o CLICK para saltar (¡puedes saltar varias veces en el aire!)</div>
+                <div>⚡ Esquiva los obstáculos para que Victoria Emma llegue lo más lejos posible</div>
+            </div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <h1>🌟 AVENTURA DE VICTORIA EMMA</h1>
+            <p style="font-size: 1.5em; margin-bottom: 30px; text-align: center;">
+                ¡Ayuda a Victoria Emma a volar por el mundo mágico!
+            </p>
+            <button class="btn" onclick="iniciarJuego()">🎮 INICIAR AVENTURA</button>
+            <div style="margin-top: 30px; font-size: 1.1em; opacity: 0.8; text-align: center;">
+                <p>• Usa ESPACIO o CLICK para saltar (multisalto activo)</p>
+                <p>• ¡Cuidado con el suelo! Allí hay más peligros.</p>
+                <p>• Evita los picos y obstáculos mágicos.</p>
+            </div>
+        </div>
+
+        <div class="game-over" id="gameOverScreen">
+            <h2>💫 ¡Fin de la Aventura!</h2>
+            <p style="font-size: 1.5em; margin-bottom: 20px;">
+                Victoria Emma avanzó: <span id="finalScore">0</span>m
+            </p>
+            <div id="newRecord" style="color: #ffff00; font-size: 1.3em; margin-bottom: 20px; display: none;">
+                🏆 ¡NUEVO RÉCORD DE VICTORIA EMMA! 🏆
+            </div>
+            <button class="btn" onclick="reiniciarJuego()">🔄 INTENTAR DE NUEVO</button>
+            <button class="btn" onclick="mostrarPantallaInicio()">🏠 MENU PRINCIPAL</button>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // CONFIGURACIÓN INICIAL DEL CANVAS
+        // ========================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        /**
+         * Ajusta el tamaño del canvas al tamaño de la ventana del navegador
+         * Se ejecuta al cargar y cuando se redimensiona la ventana
+         */
+        function redimensionarCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        redimensionarCanvas();
+        window.addEventListener('resize', redimensionarCanvas);
+
+        // ========================================
+        // VARIABLES GLOBALES DEL JUEGO
+        // ========================================
+        let estadoJuego = 'inicio'; // Estados: 'inicio', 'jugando', 'gameOver'
+        let puntuacion = 0;
+        let mejorPuntuacion = localStorage.getItem('aventuraVictoriaEmmaMejor') || 0;
+        let velocidadJuego = 4; // Juego ligeramente más lento al inicio para favorecer el piso
+        let particulas = [];
+        let obstaculos = [];
+        let ultimoObstaculo = 0;
+
+        // ========================================
+        // CONFIGURACIÓN DE LA PROTAGONISTA (VICTORIA EMMA)
+        // ========================================
+        const victoria = {
+            x: 150,                    // Posición horizontal fija
+            y: canvas.height / 2,      // Posición vertical inicial (centro)
+            ancho: 50,                 // Ancho 
+            alto: 50,                  // Alto
+            velocidadY: 0,             // Velocidad vertical actual
+            gravedad: 0.6,             // Fuerza de gravedad 
+            fuerzaSalto: -13,          // Fuerza del salto ajustada un poco para el ritmo más lento
+            enSuelo: false,            // Indica si está tocando el suelo
+            rastro: [],                // Array para el efecto de rastro
+            color: '#ff69b4',          // Color rosa principal
+            colorSecundario: '#ff1493' // Color rosa más intenso
+        };
+
+        // ========================================
+        // SISTEMA DE PARTÍCULAS DE FONDO
+        // ========================================
+        function crearParticulasFondo() {
+            if (Math.random() < 0.4) { 
+                particulas.push({
+                    x: canvas.width,
+                    y: Math.random() * canvas.height,
+                    tamaño: Math.random() * 4 + 2,
+                    velocidad: Math.random() * 3 + 2,
+                    opacidad: Math.random() * 0.7 + 0.3,
+                    color: ['#ff69b4', '#ff1493', '#ffb6c1', '#ffd1dc'][Math.floor(Math.random() * 4)]
+                });
+            }
+        }
+
+        // ========================================
+        // SISTEMA DE OBSTÁCULOS
+        // ========================================
+        /**
+         * Crea diferentes tipos de obstáculos en momentos aleatorios
+         * Centrado fuertemente en aparecer en el piso.
+         */
+        function crearObstaculo() {
+            const ahora = Date.now();
+            // Tiempo entre obstáculos aumentado para que sea un poco más lento/accesible
+            const tiempoEntreObstaculos = Math.max(1400 - puntuacion * 2, 900);
+            
+            if (ahora - ultimoObstaculo > tiempoEntreObstaculos) {
+                const tipo = Math.random();
+                const alturaPantalla = canvas.height;
+                
+                // 60% de probabilidad de que el obstáculo aparezca en el suelo
+                if (tipo < 0.60) {
+                    const alturaPico = Math.random() * 40 + 60; // Altura entre 60 y 100 (más saltables)
+                    obstaculos.push({
+                        x: canvas.width,
+                        y: alturaPantalla - alturaPico, 
+                        ancho: 50,
+                        alto: alturaPico,
+                        tipo: 'picoSuelo'
+                    });
+                } 
+                // 20% de probabilidad de techo
+                else if (tipo < 0.80) {
+                    obstaculos.push({
+                        x: canvas.width,
+                        y: 0,
+                        ancho: 50,
+                        alto: Math.random() * 40 + 80, // Altura variada en el techo
+                        tipo: 'picoTecho'
+                    });
+                } 
+                // 20% de probabilidad de obstáculo flotante en el medio
+                else {
+                    const centroY = alturaPantalla / 2;
+                    // Los flotantes intentarán estar por el centro o un poco más arriba
+                    const desplazamiento = (Math.random() - 0.5) * (alturaPantalla * 0.5);
+                    obstaculos.push({
+                        x: canvas.width,
+                        y: centroY + desplazamiento - 15,
+                        ancho: 80,
+                        alto: 30,
+                        tipo: 'flotante'
+                    });
+                }
+                ultimoObstaculo = ahora;
+            }
+        }
+
+        // ========================================
+        // FUNCIONES DE DIBUJO
+        // ========================================
+        
+        function dibujarVictoria() {
+            // Rastro
+            victoria.rastro.push({x: victoria.x + victoria.ancho/2, y: victoria.y + victoria.alto/2, alpha: 1});
+            if (victoria.rastro.length > 8) victoria.rastro.shift();
+
+            victoria.rastro.forEach((punto, i) => {
+                ctx.globalAlpha = punto.alpha * (i / victoria.rastro.length) * 0.6;
+                ctx.fillStyle = victoria.color;
+                const tamaño = 20 * (i / victoria.rastro.length);
+                ctx.fillRect(punto.x - tamaño/2, punto.y - tamaño/2, tamaño, tamaño);
+                punto.alpha *= 0.85;
+            });
+
+            ctx.globalAlpha = 1;
+            ctx.save();
+            
+            ctx.translate(victoria.x + victoria.ancho/2, victoria.y + victoria.alto/2);
+            ctx.rotate(victoria.velocidadY * 0.03);
+            
+            const gradiente = ctx.createRadialGradient(0, 0, 0, 0, 0, victoria.ancho/2);
+            gradiente.addColorStop(0, '#ffb6c1');    
+            gradiente.addColorStop(0.6, victoria.color); 
+            gradiente.addColorStop(1, victoria.colorSecundario); 
+            
+            ctx.fillStyle = gradiente;
+            ctx.fillRect(-victoria.ancho/2, -victoria.alto/2, victoria.ancho, victoria.alto);
+            
+            ctx.shadowColor = victoria.color;
+            ctx.shadowBlur = 25;
+            ctx.strokeStyle = victoria.color;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-victoria.ancho/2, -victoria.alto/2, victoria.ancho, victoria.alto);
+            
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(-15, -10, 8, 8); 
+            ctx.fillRect(7, -10, 8, 8);   
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(-12, -7, 3, 3);  
+            ctx.fillRect(10, -7, 3, 3);   
+            
+            ctx.restore();
+        }
+
+        function dibujarObstaculos() {
+            obstaculos.forEach(obs => {
+                ctx.save();
+                
+                if (obs.tipo === 'picoSuelo' || obs.tipo === 'picoTecho') {
+                    const gradiente = ctx.createLinearGradient(obs.x, obs.y, obs.x + obs.ancho, obs.y + obs.alto);
+                    gradiente.addColorStop(0, '#ff4444');
+                    gradiente.addColorStop(1, '#cc0000');
+                    
+                    ctx.fillStyle = gradiente;
+                    ctx.shadowColor = '#ff3366';
+                    ctx.shadowBlur = 15;
+                    
+                    ctx.beginPath();
+                    if (obs.tipo === 'picoTecho') {
+                        ctx.moveTo(obs.x, obs.y);
+                        ctx.lineTo(obs.x + obs.ancho, obs.y);
+                        ctx.lineTo(obs.x + obs.ancho/2, obs.y + obs.alto);
+                    } else {
+                        ctx.moveTo(obs.x, obs.y + obs.alto);
+                        ctx.lineTo(obs.x + obs.ancho, obs.y + obs.alto);
+                        ctx.lineTo(obs.x + obs.ancho/2, obs.y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    const gradiente = ctx.createLinearGradient(obs.x, obs.y, obs.x + obs.ancho, obs.y);
+                    gradiente.addColorStop(0, '#ffdd00');
+                    gradiente.addColorStop(1, '#ffaa00');
+                    
+                    ctx.fillStyle = gradiente;
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 20;
+                    ctx.fillRect(obs.x, obs.y, obs.ancho, obs.alto);
+                    
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(obs.x, obs.y, obs.ancho, obs.alto);
+                }
+                
+                ctx.restore();
+            });
+        }
+
+        function dibujarParticulas() {
+            particulas.forEach(particula => {
+                ctx.save();
+                ctx.globalAlpha = particula.opacidad;
+                ctx.fillStyle = particula.color;
+                ctx.shadowColor = particula.color;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(particula.x, particula.y, particula.tamaño, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function dibujarFondo() {
+            const gradiente = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradiente.addColorStop(0, '#001122');
+            gradiente.addColorStop(0.5, '#003366');
+            gradiente.addColorStop(1, '#001122');
+            
+            ctx.fillStyle = gradiente;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = 'rgba(255, 105, 180, 0.1)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 15; i++) {
+                const y = (i * 80 + Date.now() * 0.15) % (canvas.height + 80);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        // ========================================
+        // LÓGICA DE ACTUALIZACIÓN DEL JUEGO
+        // ========================================
+        
+        function actualizarVictoria() {
+            victoria.velocidadY += victoria.gravedad;
+            victoria.y += victoria.velocidadY;
+
+            if (victoria.y <= 0) {
+                victoria.y = 0;
+                victoria.velocidadY = 0;
+            }
+            if (victoria.y >= canvas.height - victoria.alto) {
+                victoria.y = canvas.height - victoria.alto;
+                victoria.velocidadY = 0;
+                victoria.enSuelo = true;
+            } else {
+                victoria.enSuelo = false;
+            }
+        }
+
+        function actualizarObstaculos() {
+            obstaculos.forEach(obs => {
+                obs.x -= velocidadJuego + puntuacion * 0.10; // Crecimiento de velocidad más suave
+            });
+            
+            obstaculos = obstaculos.filter(obs => obs.x + obs.ancho > 0);
+        }
+
+        function actualizarParticulas() {
+            particulas.forEach(particula => {
+                particula.x -= particula.velocidad;
+                particula.opacidad -= 0.008;
+            });
+            
+            particulas = particulas.filter(p => p.x > -10 && p.opacidad > 0);
+        }
+
+        function verificarColisiones() {
+            return obstaculos.some(obs => {
+                return victoria.x < obs.x + obs.ancho &&
+                       victoria.x + victoria.ancho > obs.x &&
+                       victoria.y < obs.y + obs.alto &&
+                       victoria.y + victoria.alto > obs.y;
+            });
+        }
+
+        // ========================================
+        // FUNCIONES DE CONTROL DEL JUEGO
+        // ========================================
+        
+        /**
+         * Hace que Victoria Emma salte aplicando fuerza hacia arriba
+         * (Permite saltar en el aire libremente)
+         */
+        function saltar() {
+            if (estadoJuego === 'jugando') {
+                victoria.velocidadY = victoria.fuerzaSalto;
+                
+                for (let i = 0; i < 12; i++) {
+                    particulas.push({
+                        x: victoria.x + victoria.ancho/2,
+                        y: victoria.y + victoria.alto,
+                        tamaño: Math.random() * 5 + 3,
+                        velocidad: Math.random() * 4 + 2,
+                        opacidad: 1,
+                        color: victoria.color
+                    });
+                }
+            }
+        }
+
+        function bucleJuego() {
+            if (estadoJuego === 'jugando') {
+                actualizarVictoria();
+                actualizarObstaculos();
+                actualizarParticulas();
+                crearParticulasFondo();
+                crearObstaculo();
+                
+                puntuacion += 0.10; // Ajustado al ritmo más lento
+                document.getElementById('scoreValue').textContent = Math.floor(puntuacion);
+                
+                // Límite de velocidad máxima ajustado para priorizar reacción
+                if (puntuacion > 100 && velocidadJuego < 8) {
+                    velocidadJuego += 0.001; 
+                }
+                
+                if (verificarColisiones()) {
+                    terminarJuego();
+                    return;
+                }
+            }
+            
+            dibujarFondo();
+            dibujarParticulas();
+            
+            if (estadoJuego === 'jugando') {
+                dibujarObstaculos();
+                dibujarVictoria();
+            }
+            
+            requestAnimationFrame(bucleJuego);
+        }
+
+        // ========================================
+        // FUNCIONES DE INTERFAZ DE USUARIO
+        // ========================================
+        
+        function iniciarJuego() {
+            estadoJuego = 'jugando';
+            document.getElementById('startScreen').style.display = 'none';
+            reiniciarVariables();
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('gameOverScreen').style.display = 'none';
+            iniciarJuego();
+        }
+
+        function mostrarPantallaInicio() {
+            estadoJuego = 'inicio';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+        }
+
+        function reiniciarVariables() {
+            puntuacion = 0;
+            velocidadJuego = 4; // Velocidad de inicio más tranquila
+            obstaculos = [];
+            particulas = [];
+            victoria.x = 150;
+            victoria.y = canvas.height / 2;
+            victoria.velocidadY = 0;
+            victoria.rastro = [];
+            ultimoObstaculo = 0;
+        }
+
+        function terminarJuego() {
+            estadoJuego = 'gameOver';
+            
+            const esNuevoRecord = Math.floor(puntuacion) > mejorPuntuacion;
+            if (esNuevoRecord) {
+                mejorPuntuacion = Math.floor(puntuacion);
+                localStorage.setItem('aventuraVictoriaEmmaMejor', mejorPuntuacion);
+                document.getElementById('newRecord').style.display = 'block';
+            } else {
+                document.getElementById('newRecord').style.display = 'none';
+            }
+            
+            document.getElementById('finalScore').textContent = Math.floor(puntuacion);
+            document.getElementById('gameOverScreen').style.display = 'block';
+            
+            for (let i = 0; i < 40; i++) {
+                particulas.push({
+                    x: victoria.x + victoria.ancho/2,
+                    y: victoria.y + victoria.alto/2,
+                    tamaño: Math.random() * 8 + 3,
+                    velocidad: Math.random() * 6 + 4,
+                    opacidad: 1,
+                    color: ['#ff69b4', '#ff1493', '#ffb6c1'][Math.floor(Math.random() * 3)]
+                });
+            }
+        }
+
+        // ========================================
+        // CONFIGURACIÓN DE CONTROLES
+        // ========================================
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                saltar();
+            }
+        });
+
+        canvas.addEventListener('click', saltar);
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            saltar();
+        });
+
+        // ========================================
+        // INICIO DEL JUEGO
+        // ========================================
+        
+        bucleJuego();
+    </script>
+</body>
+</html>
