@@ -181,7 +181,7 @@
             <button class="btn" onclick="iniciarJuego()">🎮 INICIAR AVENTURA</button>
             <div style="margin-top: 30px; font-size: 1.1em; opacity: 0.8; text-align: center;">
                 <p>• Usa ESPACIO o CLICK para saltar (multisalto activo)</p>
-                <p>• ¡Cuidado con el suelo! Allí hay más peligros.</p>
+                <p>• ¡Cuidado con el suelo! Allí hay muchos peligros.</p>
                 <p>• Evita los picos y obstáculos mágicos.</p>
             </div>
         </div>
@@ -194,7 +194,8 @@
             <div id="newRecord" style="color: #ffff00; font-size: 1.3em; margin-bottom: 20px; display: none;">
                 🏆 ¡NUEVO RÉCORD DE VICTORIA EMMA! 🏆
             </div>
-            <button class="btn" onclick="reiniciarJuego()">🔄 INTENTAR DE NUEVO</button>
+            <!-- Botón de reanudar juego corregido -->
+            <button class="btn" onclick="reiniciarJuego()">🔄 REANUDAR JUEGO</button>
             <button class="btn" onclick="mostrarPantallaInicio()">🏠 MENU PRINCIPAL</button>
         </div>
     </div>
@@ -206,10 +207,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        /**
-         * Ajusta el tamaño del canvas al tamaño de la ventana del navegador
-         * Se ejecuta al cargar y cuando se redimensiona la ventana
-         */
         function redimensionarCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -220,10 +217,10 @@
         // ========================================
         // VARIABLES GLOBALES DEL JUEGO
         // ========================================
-        let estadoJuego = 'inicio'; // Estados: 'inicio', 'jugando', 'gameOver'
+        let estadoJuego = 'inicio';
         let puntuacion = 0;
         let mejorPuntuacion = localStorage.getItem('aventuraVictoriaEmmaMejor') || 0;
-        let velocidadJuego = 4; // Juego ligeramente más lento al inicio para favorecer el piso
+        let velocidadJuego = 3; // Reducción de la velocidad de avance inicial
         let particulas = [];
         let obstaculos = [];
         let ultimoObstaculo = 0;
@@ -232,17 +229,17 @@
         // CONFIGURACIÓN DE LA PROTAGONISTA (VICTORIA EMMA)
         // ========================================
         const victoria = {
-            x: 150,                    // Posición horizontal fija
-            y: canvas.height / 2,      // Posición vertical inicial (centro)
-            ancho: 50,                 // Ancho 
-            alto: 50,                  // Alto
-            velocidadY: 0,             // Velocidad vertical actual
-            gravedad: 0.6,             // Fuerza de gravedad 
-            fuerzaSalto: -13,          // Fuerza del salto ajustada un poco para el ritmo más lento
-            enSuelo: false,            // Indica si está tocando el suelo
-            rastro: [],                // Array para el efecto de rastro
-            color: '#ff69b4',          // Color rosa principal
-            colorSecundario: '#ff1493' // Color rosa más intenso
+            x: 150,
+            y: canvas.height / 2,
+            ancho: 50,
+            alto: 50,
+            velocidadY: 0,
+            gravedad: 0.6,
+            fuerzaSalto: -12, // Ajustado sutilmente para balancear la nueva velocidad de avance
+            enSuelo: false,
+            rastro: [],
+            color: '#ff69b4',
+            colorSecundario: '#ff1493'
         };
 
         // ========================================
@@ -264,22 +261,18 @@
         // ========================================
         // SISTEMA DE OBSTÁCULOS
         // ========================================
-        /**
-         * Crea diferentes tipos de obstáculos en momentos aleatorios
-         * Centrado fuertemente en aparecer en el piso.
-         */
         function crearObstaculo() {
             const ahora = Date.now();
-            // Tiempo entre obstáculos aumentado para que sea un poco más lento/accesible
-            const tiempoEntreObstaculos = Math.max(1400 - puntuacion * 2, 900);
+            // Disminución del tiempo base para generar MÁS enemigos en total
+            const tiempoEntreObstaculos = Math.max(1000 - puntuacion * 2, 600);
             
             if (ahora - ultimoObstaculo > tiempoEntreObstaculos) {
                 const tipo = Math.random();
                 const alturaPantalla = canvas.height;
                 
-                // 60% de probabilidad de que el obstáculo aparezca en el suelo
-                if (tipo < 0.60) {
-                    const alturaPico = Math.random() * 40 + 60; // Altura entre 60 y 100 (más saltables)
+                // 80% de probabilidad de que el obstáculo aparezca en el SUELO
+                if (tipo < 0.80) {
+                    const alturaPico = Math.random() * 40 + 50; 
                     obstaculos.push({
                         x: canvas.width,
                         y: alturaPantalla - alturaPico, 
@@ -288,20 +281,19 @@
                         tipo: 'picoSuelo'
                     });
                 } 
-                // 20% de probabilidad de techo
-                else if (tipo < 0.80) {
+                // 10% de probabilidad de techo
+                else if (tipo < 0.90) {
                     obstaculos.push({
                         x: canvas.width,
                         y: 0,
                         ancho: 50,
-                        alto: Math.random() * 40 + 80, // Altura variada en el techo
+                        alto: Math.random() * 40 + 70, 
                         tipo: 'picoTecho'
                     });
                 } 
-                // 20% de probabilidad de obstáculo flotante en el medio
+                // 10% de probabilidad de obstáculo flotante
                 else {
                     const centroY = alturaPantalla / 2;
-                    // Los flotantes intentarán estar por el centro o un poco más arriba
                     const desplazamiento = (Math.random() - 0.5) * (alturaPantalla * 0.5);
                     obstaculos.push({
                         x: canvas.width,
@@ -320,7 +312,6 @@
         // ========================================
         
         function dibujarVictoria() {
-            // Rastro
             victoria.rastro.push({x: victoria.x + victoria.ancho/2, y: victoria.y + victoria.alto/2, alpha: 1});
             if (victoria.rastro.length > 8) victoria.rastro.shift();
 
@@ -464,7 +455,7 @@
 
         function actualizarObstaculos() {
             obstaculos.forEach(obs => {
-                obs.x -= velocidadJuego + puntuacion * 0.10; // Crecimiento de velocidad más suave
+                obs.x -= velocidadJuego + puntuacion * 0.10;
             });
             
             obstaculos = obstaculos.filter(obs => obs.x + obs.ancho > 0);
@@ -492,10 +483,6 @@
         // FUNCIONES DE CONTROL DEL JUEGO
         // ========================================
         
-        /**
-         * Hace que Victoria Emma salte aplicando fuerza hacia arriba
-         * (Permite saltar en el aire libremente)
-         */
         function saltar() {
             if (estadoJuego === 'jugando') {
                 victoria.velocidadY = victoria.fuerzaSalto;
@@ -521,11 +508,10 @@
                 crearParticulasFondo();
                 crearObstaculo();
                 
-                puntuacion += 0.10; // Ajustado al ritmo más lento
+                puntuacion += 0.10; 
                 document.getElementById('scoreValue').textContent = Math.floor(puntuacion);
                 
-                // Límite de velocidad máxima ajustado para priorizar reacción
-                if (puntuacion > 100 && velocidadJuego < 8) {
+                if (puntuacion > 100 && velocidadJuego < 7) {
                     velocidadJuego += 0.001; 
                 }
                 
@@ -569,7 +555,7 @@
 
         function reiniciarVariables() {
             puntuacion = 0;
-            velocidadJuego = 4; // Velocidad de inicio más tranquila
+            velocidadJuego = 3; // Velocidad de avance disminuida
             obstaculos = [];
             particulas = [];
             victoria.x = 150;
