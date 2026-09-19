@@ -83,6 +83,7 @@
             backdrop-filter: blur(10px);
             box-shadow: 0 0 50px rgba(255,105,180,0.3);
             pointer-events: all;
+            z-index: 30;
         }
 
         .game-over h2 {
@@ -194,7 +195,7 @@
             <div id="newRecord" style="color: #ffff00; font-size: 1.3em; margin-bottom: 20px; display: none;">
                 🏆 ¡NUEVO RÉCORD DE VICTORIA EMMA! 🏆
             </div>
-            <!-- Botón de reanudar juego corregido -->
+            <!-- Botones corregidos -->
             <button class="btn" onclick="reiniciarJuego()">🔄 REANUDAR JUEGO</button>
             <button class="btn" onclick="mostrarPantallaInicio()">🏠 MENU PRINCIPAL</button>
         </div>
@@ -220,7 +221,7 @@
         let estadoJuego = 'inicio';
         let puntuacion = 0;
         let mejorPuntuacion = localStorage.getItem('aventuraVictoriaEmmaMejor') || 0;
-        let velocidadJuego = 3; // Reducción de la velocidad de avance inicial
+        let velocidadJuego = 2.5; // Velocidad de avance disminuida para ser más fácil
         let particulas = [];
         let obstaculos = [];
         let ultimoObstaculo = 0;
@@ -234,8 +235,8 @@
             ancho: 50,
             alto: 50,
             velocidadY: 0,
-            gravedad: 0.6,
-            fuerzaSalto: -12, // Ajustado sutilmente para balancear la nueva velocidad de avance
+            gravedad: 0.5, // Gravedad reducida (flota un poco más)
+            fuerzaSalto: -10.5, // Salto ajustado a la nueva gravedad
             enSuelo: false,
             rastro: [],
             color: '#ff69b4',
@@ -263,14 +264,14 @@
         // ========================================
         function crearObstaculo() {
             const ahora = Date.now();
-            // Disminución del tiempo base para generar MÁS enemigos en total
-            const tiempoEntreObstaculos = Math.max(1000 - puntuacion * 2, 600);
+            // Aumentamos el tiempo entre obstáculos para no aglomerarlos tanto
+            const tiempoEntreObstaculos = Math.max(1200 - puntuacion * 1.5, 800);
             
             if (ahora - ultimoObstaculo > tiempoEntreObstaculos) {
                 const tipo = Math.random();
                 const alturaPantalla = canvas.height;
                 
-                // 80% de probabilidad de que el obstáculo aparezca en el SUELO
+                // 80% de probabilidad en el SUELO
                 if (tipo < 0.80) {
                     const alturaPico = Math.random() * 40 + 50; 
                     obstaculos.push({
@@ -281,7 +282,7 @@
                         tipo: 'picoSuelo'
                     });
                 } 
-                // 10% de probabilidad de techo
+                // 10% de probabilidad en el techo
                 else if (tipo < 0.90) {
                     obstaculos.push({
                         x: canvas.width,
@@ -291,7 +292,7 @@
                         tipo: 'picoTecho'
                     });
                 } 
-                // 10% de probabilidad de obstáculo flotante
+                // 10% de probabilidad flotante
                 else {
                     const centroY = alturaPantalla / 2;
                     const desplazamiento = (Math.random() - 0.5) * (alturaPantalla * 0.5);
@@ -455,7 +456,7 @@
 
         function actualizarObstaculos() {
             obstaculos.forEach(obs => {
-                obs.x -= velocidadJuego + puntuacion * 0.10;
+                obs.x -= velocidadJuego + puntuacion * 0.05; // Acelera más lento
             });
             
             obstaculos = obstaculos.filter(obs => obs.x + obs.ancho > 0);
@@ -471,11 +472,13 @@
         }
 
         function verificarColisiones() {
+            // Se añade un margen de error de 8 pixeles para que sea más perdonador
+            const margen = 8;
             return obstaculos.some(obs => {
-                return victoria.x < obs.x + obs.ancho &&
-                       victoria.x + victoria.ancho > obs.x &&
-                       victoria.y < obs.y + obs.alto &&
-                       victoria.y + victoria.alto > obs.y;
+                return (victoria.x + margen) < (obs.x + obs.ancho) &&
+                       (victoria.x + victoria.ancho - margen) > obs.x &&
+                       (victoria.y + margen) < (obs.y + obs.alto) &&
+                       (victoria.y + victoria.alto - margen) > obs.y;
             });
         }
 
@@ -517,18 +520,25 @@
                 
                 if (verificarColisiones()) {
                     terminarJuego();
-                    return;
+                    // IMPORTANTE: Ya no rompemos el bucle con un 'return'
+                    // Esto permite que el juego siga renderizando y escuche el botón
                 }
+            } else {
+                // Si perdimos o estamos en el inicio, las particulas de fondo se siguen moviendo
+                actualizarParticulas();
+                crearParticulasFondo();
             }
             
             dibujarFondo();
             dibujarParticulas();
             
-            if (estadoJuego === 'jugando') {
+            // Si estamos jugando o perdimos, dibujamos el escenario actual congelado
+            if (estadoJuego === 'jugando' || estadoJuego === 'gameOver') {
                 dibujarObstaculos();
                 dibujarVictoria();
             }
             
+            // Mantiene el bucle vivo siempre
             requestAnimationFrame(bucleJuego);
         }
 
@@ -555,7 +565,7 @@
 
         function reiniciarVariables() {
             puntuacion = 0;
-            velocidadJuego = 3; // Velocidad de avance disminuida
+            velocidadJuego = 2.5; 
             obstaculos = [];
             particulas = [];
             victoria.x = 150;
@@ -580,6 +590,7 @@
             document.getElementById('finalScore').textContent = Math.floor(puntuacion);
             document.getElementById('gameOverScreen').style.display = 'block';
             
+            // Explosión de partículas al chocar
             for (let i = 0; i < 40; i++) {
                 particulas.push({
                     x: victoria.x + victoria.ancho/2,
@@ -603,18 +614,26 @@
             }
         });
 
-        canvas.addEventListener('click', saltar);
+        canvas.addEventListener('click', (e) => {
+            // Evitar que el click en los botones dispare el salto si estamos en Game Over o Inicio
+            if (estadoJuego === 'jugando') {
+                saltar();
+            }
+        });
         
         canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            saltar();
+            if (estadoJuego === 'jugando') {
+                e.preventDefault();
+                saltar();
+            }
         });
 
         // ========================================
         // INICIO DEL JUEGO
         // ========================================
         
-        bucleJuego();
+        // Iniciamos el bucle una sola vez. Se mantendrá ejecutándose en bucle infinito
+        requestAnimationFrame(bucleJuego);
     </script>
 </body>
 </html>
